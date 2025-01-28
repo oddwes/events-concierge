@@ -29,7 +29,7 @@ export const getRelevantEventsAction: Action = {
         "ACTIVITIES",
     ],
     description:
-        "Get relevant upcoming events based on a topic. Return results as a list. Always include the event title, date & time, and url. If the user specifies a number of events, return that number of events. If the user does not specify a number of events, return 3 events.",
+        "Get relevant upcoming events based on a topic. Return results as a list. Always include the event title, date & time, and url and sort the results chronologically. If the user specifies a number of events, return that number of events. If the user does not specify a number of events, return 3 events.",
     validate: async (_runtime: IAgentRuntime) => {
         return true;
     },
