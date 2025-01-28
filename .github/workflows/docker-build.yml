@@ -41,30 +41,35 @@ jobs:
           echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" >> .env
           echo "GOOGLE_CLIENT_CERT_URL=${{ secrets.GOOGLE_CLIENT_CERT_URL }}" >> .env
 
-      - name: Install Heroku CLI
-        run: curl https://cli-assets.heroku.com/install.sh | sh
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Login to Heroku Container Registry
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-        run: heroku container:login
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
 
-      - name: Build and push Docker image
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-          HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and export
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: |
+            438465133266.dkr.ecr.us-east-2.amazonaws.com/events-concierge:latest
+            438465133266.dkr.ecr.us-east-2.amazonaws.com/events-concierge:${{ steps.get-tag.outputs.TAG }}
+
+      - name: Push to ECR
         run: |
-          docker build -t registry.heroku.com/$HEROKU_APP_NAME/web .
-          docker push registry.heroku.com/$HEROKU_APP_NAME/web
+          docker push 438465133266.dkr.ecr.us-east-2.amazonaws.com/events-concierge:latest
+          docker push 438465133266.dkr.ecr.us-east-2.amazonaws.com/events-concierge:${{ steps.get-tag.outputs.TAG }}
 
-      - name: Set Heroku stack to container
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-          HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
-        run: heroku stack:set container -a $HEROKU_APP_NAME
-
-      - name: Release to Heroku
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-          HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
-        run: heroku container:release web -a $HEROKU_APP_NAME
+      - name: Force new ECS deployment
+        run: |
+          aws ecs update-service --cluster events-concierge-cluster --service events-concierge-service --force-new-deployment --region us-east-2
