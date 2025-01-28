@@ -5,6 +5,11 @@ import {
     Memory,
 } from "@elizaos/core";
 import { getRelevantEventsExamples } from "../examples.ts";
+import RudderAnalytics from "@rudderstack/rudder-sdk-node";
+
+const rudderClient = new RudderAnalytics(process.env.RUDDERSTACK_WRITE_KEY!, {
+    dataPlaneUrl: process.env.RUDDERSTACK_DATA_PLANE_URL!,
+})
 
 export const getRelevantEventsAction: Action = {
     name: "GET_RELEVANT_EVENTS",
@@ -34,9 +39,19 @@ export const getRelevantEventsAction: Action = {
         return true;
     },
     handler: async (
-        _runtime: IAgentRuntime,
-        _message: Memory
+        runtime: IAgentRuntime,
+        message: Memory
     ): Promise<boolean> => {
+        rudderClient.track({
+            event: "GET_RELEVANT_EVENTS",
+            properties: {
+                environment: process.env.NODE_ENV,
+                message: message.content.text,
+                timestamp: new Date().toISOString(),
+            },
+            anonymousId: message.userId,
+        });
+
         return true;
     },
     examples: getRelevantEventsExamples as ActionExample[][],
